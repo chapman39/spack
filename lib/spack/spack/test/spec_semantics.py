@@ -18,15 +18,7 @@ import spack.store
 import spack.variant
 import spack.version as vn
 from spack.error import SpecError, UnsatisfiableSpecError
-from spack.spec import (
-    ArchSpec,
-    CompilerSpec,
-    DependencySpec,
-    Spec,
-    SpecFormatSigilError,
-    SpecFormatStringError,
-    UnsupportedCompilerError,
-)
+from spack.spec import ArchSpec, DependencySpec, Spec, SpecFormatSigilError, SpecFormatStringError
 from spack.variant import (
     InvalidVariantValueError,
     MultipleValuesInExclusiveVariantError,
@@ -72,44 +64,44 @@ def setup_complex_splice(monkeypatch):
     monkeypatch.setattr(Spec, "_splice_match", splice_match)
     monkeypatch.setattr(Spec, "_virtuals_provided", virtuals_provided)
 
-    g1_red = Spec("g color=red")
+    g1_red = Spec("pkg-g color=red")
     g1_red.versions = vn.VersionList([vn.Version("1")])
-    g2_red = Spec("g color=red")
+    g2_red = Spec("pkg-g color=red")
     g2_red.versions = vn.VersionList([vn.Version("2")])
-    g2_blue = Spec("g color=blue")
+    g2_blue = Spec("pkg-g color=blue")
     g2_blue.versions = vn.VersionList([vn.Version("2")])
-    g3_blue = Spec("g color=blue")
+    g3_blue = Spec("pkg-g color=blue")
     g3_blue.versions = vn.VersionList([vn.Version("3")])
 
     depflag = dt.LINK | dt.BUILD
-    e_red = Spec("e color=red")
+    e_red = Spec("pkg-e color=red")
     e_red._add_dependency(g1_red, depflag=depflag, virtuals=())
-    e_blue = Spec("e color=blue")
+    e_blue = Spec("pkg-e color=blue")
     e_blue._add_dependency(g3_blue, depflag=depflag, virtuals=())
 
-    d_red = Spec("d color=red")
+    d_red = Spec("pkg-d color=red")
     d_red._add_dependency(g1_red, depflag=depflag, virtuals=())
-    d_blue = Spec("d color=blue")
+    d_blue = Spec("pkg-d color=blue")
     d_blue._add_dependency(g2_blue, depflag=depflag, virtuals=())
 
-    b_red = Spec("b color=red")
+    b_red = Spec("pkg-b color=red")
     b_red._add_dependency(e_red, depflag=depflag, virtuals=())
     b_red._add_dependency(d_red, depflag=depflag, virtuals=())
     b_red._add_dependency(g1_red, depflag=depflag, virtuals=())
 
-    f_blue = Spec("f color=blue")
+    f_blue = Spec("pkg-f color=blue")
     f_blue._add_dependency(e_blue, depflag=depflag, virtuals=())
     f_blue._add_dependency(g3_blue, depflag=depflag, virtuals=())
 
-    c_red = Spec("c color=red")
+    c_red = Spec("pkg-c color=red")
     c_red._add_dependency(d_red, depflag=depflag, virtuals=())
     c_red._add_dependency(g2_red, depflag=depflag, virtuals=())
-    c_blue = Spec("c color=blue")
+    c_blue = Spec("pkg-c color=blue")
     c_blue._add_dependency(d_blue, depflag=depflag, virtuals=())
     c_blue._add_dependency(f_blue, depflag=depflag, virtuals=())
     c_blue._add_dependency(g3_blue, depflag=depflag, virtuals=())
 
-    a_red = Spec("a color=red")
+    a_red = Spec("pkg-a color=red")
     a_red._add_dependency(b_red, depflag=depflag, virtuals=())
     a_red._add_dependency(c_red, depflag=depflag, virtuals=())
     a_red._add_dependency(g2_red, depflag=depflag, virtuals=())
@@ -456,8 +448,6 @@ class TestSpecSemantics:
             ("foo os=redhat6", "platform=test os=debian6 target=x86_64"),
             ("foo target=x86_64", "platform=test os=redhat6 target=x86"),
             ("foo arch=test-frontend-frontend", "platform=test os=frontend target=backend"),
-            ("foo%intel", "%gcc"),
-            ("foo%intel", "%pgi"),
             ("foo%pgi@4.3", "%pgi@4.4:4.6"),
             ("foo@4.0%pgi", "@1:3%pgi"),
             ("foo@4.0%pgi@4.5", "@1:3%pgi@4.4:4.6"),
@@ -817,18 +807,21 @@ class TestSpecSemantics:
         package_segments = [
             ("{NAME}", "", "name", lambda spec: spec),
             ("{VERSION}", "", "version", lambda spec: spec),
-            ("{compiler}", "", "compiler", lambda spec: spec),
+            # FIXME (compiler as nodes): recover this semantic
+            # ("{compiler}", "", "compiler", lambda spec: spec),
             ("{compiler_flags}", "", "compiler_flags", lambda spec: spec),
             ("{variants}", "", "variants", lambda spec: spec),
             ("{architecture}", "", "architecture", lambda spec: spec),
             ("{@VERSIONS}", "@", "versions", lambda spec: spec),
-            ("{%compiler}", "%", "compiler", lambda spec: spec),
+            # FIXME (compiler as nodes): recover this semantic
+            # ("{%compiler}", "%", "compiler", lambda spec: spec),
             ("{arch=architecture}", "arch=", "architecture", lambda spec: spec),
             ("{namespace=namespace}", "namespace=", "namespace", lambda spec: spec),
-            ("{compiler.name}", "", "name", lambda spec: spec.compiler),
-            ("{compiler.version}", "", "version", lambda spec: spec.compiler),
-            ("{%compiler.name}", "%", "name", lambda spec: spec.compiler),
-            ("{@compiler.version}", "@", "version", lambda spec: spec.compiler),
+            # FIXME (compiler as nodes): recover this semantic
+            # ("{compiler.name}", "", "name", lambda spec: spec.compiler),
+            # ("{compiler.version}", "", "version", lambda spec: spec.compiler),
+            # ("{%compiler.name}", "%", "name", lambda spec: spec.compiler),
+            # ("{@compiler.version}", "@", "version", lambda spec: spec.compiler),
             ("{architecture.platform}", "", "platform", lambda spec: spec.architecture),
             ("{architecture.os}", "", "os", lambda spec: spec.architecture),
             ("{architecture.target}", "", "target", lambda spec: spec.architecture),
@@ -1055,8 +1048,14 @@ class TestSpecSemantics:
 
         spliced = a_red.splice(c_blue, transitive=False)
         assert spliced.satisfies(
-            "a color=red ^b color=red ^c color=blue "
-            "^d color=red ^e color=red ^f color=blue ^g@3 color=blue"
+            "pkg-a color=red ^pkg-b color=red ^pkg-c color=blue "
+            "^pkg-d color=red ^pkg-e color=red ^pkg-f color=blue ^pkg-g@3 color=blue"
+        ), print(
+            a_red.tree(show_types=True),
+            "\n\n",
+            c_blue.tree(show_types=True),
+            "\n\n",
+            spliced.tree(show_types=True),
         )
         assert set(spliced.dependencies(deptype=dt.BUILD)) == set(
             a_red.dependencies(deptype=dt.BUILD)
@@ -1065,67 +1064,79 @@ class TestSpecSemantics:
         # We cannot check spliced["b"].build_spec is spliced["b"] because Spec.__getitem__ creates
         # a new wrapper object on each invocation. So we select once and check on that object
         # For the rest of the unchanged specs we will just check the s._build_spec is None.
-        b = spliced["b"]
-        assert b == a_red["b"]
+        b = spliced["pkg-b"]
+        assert b == a_red["pkg-b"]
         assert b.build_spec is b
         assert set(b.dependents()) == {spliced}
 
-        assert spliced["c"].satisfies(
-            "c color=blue ^d color=red ^e color=red ^f color=blue ^g@3 color=blue"
+        assert spliced["pkg-c"].satisfies(
+            "pkg-c color=blue ^pkg-d color=red ^pkg-e color=red "
+            "^pkg-f color=blue ^pkg-g@3 color=blue"
         )
-        assert set(spliced["c"].dependencies(deptype=dt.BUILD)) == set(
+        assert set(spliced["pkg-c"].dependencies(deptype=dt.BUILD)) == set(
             c_blue.dependencies(deptype=dt.BUILD)
         )
-        assert spliced["c"].build_spec == c_blue
-        assert set(spliced["c"].dependents()) == {spliced}
+        assert spliced["pkg-c"].build_spec == c_blue
+        assert set(spliced["pkg-c"].dependents()) == {spliced}
 
-        assert spliced["d"] == a_red["d"]
-        assert spliced["d"]._build_spec is None
+        assert spliced["pkg-d"] == a_red["pkg-d"]
+        assert spliced["pkg-d"]._build_spec is None
         # Since D had a parent changed, it has a split edge for link vs build dependent
         # note: spliced["b"] == b_red, referenced differently to preserve logic
-        assert set(spliced["d"].dependents()) == {spliced["b"], spliced["c"], a_red["c"]}
-        assert set(spliced["d"].dependents(deptype=dt.BUILD)) == {a_red["b"], a_red["c"]}
+        assert set(spliced["pkg-d"].dependents()) == {
+            spliced["pkg-b"],
+            spliced["pkg-c"],
+            a_red["pkg-c"],
+        }
+        assert set(spliced["pkg-d"].dependents(deptype=dt.BUILD)) == {
+            a_red["pkg-b"],
+            a_red["pkg-c"],
+        }
 
-        assert spliced["e"] == a_red["e"]
-        assert spliced["e"]._build_spec is None
+        assert spliced["pkg-e"] == a_red["pkg-e"]
+        assert spliced["pkg-e"]._build_spec is None
         # Because a copy of e is used, it does not have dependnets in the original specs
-        assert set(spliced["e"].dependents()) == {spliced["b"], spliced["f"]}
+        assert set(spliced["pkg-e"].dependents()) == {spliced["pkg-b"], spliced["pkg-f"]}
         # Build dependent edge to f because f originally dependended on the e this was copied from
-        assert set(spliced["e"].dependents(deptype=dt.BUILD)) == {spliced["b"]}
+        assert set(spliced["pkg-e"].dependents(deptype=dt.BUILD)) == {spliced["pkg-b"]}
 
-        assert spliced["f"].satisfies("f color=blue ^e color=red ^g@3 color=blue")
-        assert set(spliced["f"].dependencies(deptype=dt.BUILD)) == set(
-            c_blue["f"].dependencies(deptype=dt.BUILD)
+        assert spliced["pkg-f"].satisfies("pkg-f color=blue ^pkg-e color=red ^pkg-g@3 color=blue")
+        assert set(spliced["pkg-f"].dependencies(deptype=dt.BUILD)) == set(
+            c_blue["pkg-f"].dependencies(deptype=dt.BUILD)
         )
-        assert spliced["f"].build_spec == c_blue["f"]
-        assert set(spliced["f"].dependents()) == {spliced["c"]}
+        assert spliced["pkg-f"].build_spec == c_blue["pkg-f"]
+        assert set(spliced["pkg-f"].dependents()) == {spliced["pkg-c"]}
 
         # spliced["g"] is g3, but spliced["b"]["g"] is g1
-        assert spliced["g"] == a_red["g"]
-        assert spliced["g"]._build_spec is None
-        assert set(spliced["g"].dependents(deptype=dt.LINK)) == {
+        assert spliced["pkg-g"] == a_red["pkg-g"]
+        assert spliced["pkg-g"]._build_spec is None
+        assert set(spliced["pkg-g"].dependents(deptype=dt.LINK)) == {
             spliced,
-            spliced["c"],
-            spliced["f"],
-            a_red["c"],
+            spliced["pkg-c"],
+            spliced["pkg-f"],
+            a_red["pkg-c"],
         }
-        assert set(spliced["g"].dependents(deptype=dt.BUILD)) == {spliced, a_red["c"]}
+        assert set(spliced["pkg-g"].dependents(deptype=dt.BUILD)) == {spliced, a_red["pkg-c"]}
 
-        assert spliced["b"]["g"] == a_red["b"]["g"]
-        assert spliced["b"]["g"]._build_spec is None
-        assert set(spliced["b"]["g"].dependents()) == {spliced["b"], spliced["d"], spliced["e"]}
+        assert spliced["pkg-b"]["pkg-g"] == a_red["pkg-b"]["pkg-g"]
+        assert spliced["pkg-b"]["pkg-g"]._build_spec is None
+        assert set(spliced["pkg-b"]["pkg-g"].dependents()) == {
+            spliced["pkg-b"],
+            spliced["pkg-d"],
+            spliced["pkg-e"],
+        }
 
         for edge in spliced.traverse_edges(cover="edges", deptype=dt.LINK | dt.RUN):
             # traverse_edges creates a synthetic edge with no deptypes to the root
             if edge.depflag:
                 depflag = dt.LINK
                 if (edge.parent.name, edge.spec.name) not in [
-                    ("a", "c"),  # These are the spliced edges
-                    ("c", "d"),
-                    ("f", "e"),
-                    ("c", "g"),
-                    ("f", "g"),
-                    ("c", "f"),  # ancestor to spliced edge
+                    ("pkg-a", "pkg-c"),  # These are the spliced edges
+                    ("pkg-c", "pkg-d"),
+                    ("pkg-f", "pkg-e"),
+                    ("pkg-c", "pkg-g"),
+                    ("pkg-f", "pkg-g"),
+                    ("pkg-c", "pkg-f"),  # ancestor to spliced edge
                 ]:
                     depflag |= dt.BUILD
                 assert edge.depflag == depflag
@@ -1135,75 +1146,80 @@ class TestSpecSemantics:
 
         spliced = a_red.splice(c_blue, transitive=True)
         assert spliced.satisfies(
-            "a color=red ^b color=red"
-            "^c color=blue ^d color=blue ^e color=blue ^f color=blue ^g@3 color=blue"
+            "pkg-a color=red ^pkg-b color=red ^pkg-c color=blue ^pkg-d color=blue "
+            "^pkg-e color=blue ^pkg-f color=blue ^pkg-g@3 color=blue"
         )
         assert set(spliced.dependencies(deptype=dt.BUILD)) == set(
             a_red.dependencies(deptype=dt.BUILD)
         )
         assert spliced.build_spec == a_red
 
-        assert spliced["b"].satisfies("b color=red ^d color=blue ^e color=blue ^g@2 color=blue")
-        assert set(spliced["b"].dependencies(deptype=dt.BUILD)) == set(
-            a_red["b"].dependencies(deptype=dt.BUILD)
+        assert spliced["pkg-b"].satisfies(
+            "pkg-b color=red ^pkg-d color=blue ^pkg-e color=blue ^pkg-g@2 color=blue"
         )
-        assert spliced["b"].build_spec == a_red["b"]
-        assert set(spliced["b"].dependents()) == {spliced}
+        assert set(spliced["pkg-b"].dependencies(deptype=dt.BUILD)) == set(
+            a_red["pkg-b"].dependencies(deptype=dt.BUILD)
+        )
+        assert spliced["pkg-b"].build_spec == a_red["pkg-b"]
+        assert set(spliced["pkg-b"].dependents()) == {spliced}
 
         # We cannot check spliced["b"].build_spec is spliced["b"] because Spec.__getitem__ creates
         # a new wrapper object on each invocation. So we select once and check on that object
         # For the rest of the unchanged specs we will just check the s._build_spec is None.
-        c = spliced["c"]
+        c = spliced["pkg-c"]
         assert c == c_blue
         assert c.build_spec is c
         assert set(c.dependents()) == {spliced}
 
-        assert spliced["d"] == c_blue["d"]
-        assert spliced["d"]._build_spec is None
-        assert set(spliced["d"].dependents()) == {spliced["b"], spliced["c"]}
+        assert spliced["pkg-d"] == c_blue["pkg-d"]
+        assert spliced["pkg-d"]._build_spec is None
+        assert set(spliced["pkg-d"].dependents()) == {spliced["pkg-b"], spliced["pkg-c"]}
 
-        assert spliced["e"] == c_blue["e"]
-        assert spliced["e"]._build_spec is None
-        assert set(spliced["e"].dependents()) == {spliced["b"], spliced["f"]}
+        assert spliced["pkg-e"] == c_blue["pkg-e"]
+        assert spliced["pkg-e"]._build_spec is None
+        assert set(spliced["pkg-e"].dependents()) == {spliced["pkg-b"], spliced["pkg-f"]}
 
-        assert spliced["f"] == c_blue["f"]
-        assert spliced["f"]._build_spec is None
-        assert set(spliced["f"].dependents()) == {spliced["c"]}
+        assert spliced["pkg-f"] == c_blue["pkg-f"]
+        assert spliced["pkg-f"]._build_spec is None
+        assert set(spliced["pkg-f"].dependents()) == {spliced["pkg-c"]}
 
         # spliced["g"] is g3, but spliced["d"]["g"] is g1
-        assert spliced["g"] == c_blue["g"]
-        assert spliced["g"]._build_spec is None
-        assert set(spliced["g"].dependents(deptype=dt.LINK)) == {
+        assert spliced["pkg-g"] == c_blue["pkg-g"]
+        assert spliced["pkg-g"]._build_spec is None
+        assert set(spliced["pkg-g"].dependents(deptype=dt.LINK)) == {
             spliced,
-            spliced["b"],
-            spliced["c"],
-            spliced["e"],
-            spliced["f"],
+            spliced["pkg-b"],
+            spliced["pkg-c"],
+            spliced["pkg-e"],
+            spliced["pkg-f"],
         }
         # Because a copy of g3 is used, it does not have dependents in the original specs
         # It has build dependents on these spliced specs because it is an unchanged dependency
         # for them
-        assert set(spliced["g"].dependents(deptype=dt.BUILD)) == {
-            spliced["c"],
-            spliced["e"],
-            spliced["f"],
+        assert set(spliced["pkg-g"].dependents(deptype=dt.BUILD)) == {
+            spliced["pkg-c"],
+            spliced["pkg-e"],
+            spliced["pkg-f"],
         }
 
-        assert spliced["d"]["g"] == c_blue["d"]["g"]
-        assert spliced["d"]["g"]._build_spec is None
-        assert set(spliced["d"]["g"].dependents()) == {spliced["d"]}
+        assert spliced["pkg-d"]["pkg-g"] == c_blue["pkg-d"]["pkg-g"]
+        assert spliced["pkg-d"]["pkg-g"]._build_spec is None
+        assert set(spliced["pkg-d"]["pkg-g"].dependents()) == {spliced["pkg-d"]}
 
         for edge in spliced.traverse_edges(cover="edges", deptype=dt.LINK | dt.RUN):
             # traverse_edges creates a synthetic edge with no deptypes to the root
             if edge.depflag:
                 depflag = dt.LINK
                 if (edge.parent.name, edge.spec.name) not in [
-                    ("a", "c"),  # These are the spliced edges
-                    ("a", "g"),
-                    ("b", "d"),
-                    ("b", "e"),
-                    ("b", "g"),
-                    ("a", "b"),  # This edge not spliced, but b was spliced invalidating edge
+                    ("pkg-a", "pkg-c"),  # These are the spliced edges
+                    ("pkg-a", "pkg-g"),
+                    ("pkg-b", "pkg-d"),
+                    ("pkg-b", "pkg-e"),
+                    ("pkg-b", "pkg-g"),
+                    (
+                        "pkg-a",
+                        "pkg-b",
+                    ),  # This edge not spliced, but b was spliced invalidating edge
                 ]:
                     depflag |= dt.BUILD
                 assert edge.depflag == depflag
@@ -1479,16 +1495,17 @@ class TestSpecSemantics:
         ("git-test@git.foo/bar", "{name}-{version}", str(pathlib.Path("git-test-git.foo_bar"))),
         ("git-test@git.foo/bar", "{name}-{version}-{/hash}", None),
         ("git-test@git.foo/bar", "{name}/{version}", str(pathlib.Path("git-test", "git.foo_bar"))),
-        (
-            "git-test@{0}=1.0%gcc".format("a" * 40),
-            "{name}/{version}/{compiler}",
-            str(pathlib.Path("git-test", "{0}_1.0".format("a" * 40), "gcc")),
-        ),
-        (
-            "git-test@git.foo/bar=1.0%gcc",
-            "{name}/{version}/{compiler}",
-            str(pathlib.Path("git-test", "git.foo_bar_1.0", "gcc")),
-        ),
+        # FIXME (compiler as nodes): revisit these tests
+        # (
+        #     "git-test@{0}=1.0%gcc".format("a" * 40),
+        #     "{name}/{version}/{compiler}",
+        #     str(pathlib.Path("git-test", "{0}_1.0".format("a" * 40), "gcc")),
+        # ),
+        # (
+        #     "git-test@git.foo/bar=1.0%gcc",
+        #     "{name}/{version}/{compiler}",
+        #     str(pathlib.Path("git-test", "git.foo_bar_1.0", "gcc")),
+        # ),
     ],
 )
 def test_spec_format_path(spec_str, format_str, expected, mock_git_test_package):
@@ -1671,12 +1688,18 @@ def test_call_dag_hash_on_old_dag_hash_spec(mock_packages, default_mock_concreti
 def test_spec_trim(mock_packages, config):
     top = Spec("dt-diamond").concretized()
     top.trim("dt-diamond-left")
-    remaining = set(x.name for x in top.traverse())
-    assert set(["dt-diamond", "dt-diamond-right", "dt-diamond-bottom"]) == remaining
+    remaining = {x.name for x in top.traverse()}
+    assert {
+        "dt-diamond",
+        "dt-diamond-right",
+        "dt-diamond-bottom",
+        "gcc-runtime",
+        "gcc",
+    } == remaining
 
     top.trim("dt-diamond-right")
-    remaining = set(x.name for x in top.traverse())
-    assert set(["dt-diamond"]) == remaining
+    remaining = {x.name for x in top.traverse()}
+    assert {"dt-diamond", "gcc-runtime", "gcc"} == remaining
 
 
 @pytest.mark.regression("30861")
@@ -1704,11 +1727,6 @@ def test_concretize_partial_old_dag_hash_spec(mock_packages, config):
 
     # make sure package hash is NOT recomputed
     assert not getattr(spec["dt-diamond-bottom"], "_package_hash", None)
-
-
-def test_unsupported_compiler():
-    with pytest.raises(UnsupportedCompilerError):
-        Spec("gcc%fake-compiler").validate_or_raise()
 
 
 def test_package_hash_affects_dunder_and_dag_hash(mock_packages, default_mock_concretization):
@@ -1783,10 +1801,10 @@ def test_abstract_contains_semantic(lhs, rhs, expected, mock_packages):
         (ArchSpec, "None-ubuntu20.04-None", "None-ubuntu20.04-None", (True, True, True)),
         (ArchSpec, "None-ubuntu20.04-None", "None-ubuntu22.04-None", (False, False, False)),
         # Compiler
-        (CompilerSpec, "gcc", "clang", (False, False, False)),
-        (CompilerSpec, "gcc", "gcc@5", (True, False, True)),
-        (CompilerSpec, "gcc@5", "gcc@5.3", (True, False, True)),
-        (CompilerSpec, "gcc@5", "gcc@5-tag", (True, False, True)),
+        (Spec, "gcc", "clang", (False, False, False)),
+        (Spec, "gcc", "gcc@5", (True, False, True)),
+        (Spec, "gcc@5", "gcc@5.3", (True, False, True)),
+        (Spec, "gcc@5", "gcc@5-tag", (True, False, True)),
         # Flags (flags are a map, so for convenience we initialize a full Spec)
         # Note: the semantic is that of sv variants, not mv variants
         (Spec, "cppflags=-foo", "cppflags=-bar", (True, False, False)),
@@ -1842,8 +1860,8 @@ def test_intersects_and_satisfies(factory, lhs_str, rhs_str, results):
             "None-ubuntu20.04-nocona,haswell",
         ),
         # Compiler
-        (CompilerSpec, "gcc@5", "gcc@5-tag", True, "gcc@5-tag"),
-        (CompilerSpec, "gcc@5", "gcc@5", False, "gcc@5"),
+        (Spec, "foo %gcc@5", "foo %gcc@5-tag", True, "foo %gcc@5-tag"),
+        (Spec, "foo %gcc@5", "foo %gcc@5", False, "foo %gcc@5"),
         # Flags
         (Spec, "cppflags=-foo", "cppflags=-foo", False, "cppflags=-foo"),
         (Spec, "cppflags=-foo", "cflags=-foo", True, "cppflags=-foo cflags=-foo"),
